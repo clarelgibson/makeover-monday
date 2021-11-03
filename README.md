@@ -7,4 +7,10 @@ So I have decided to set myself my own challenge: complete 100 Makeover Monday s
 
 ## 2019
 
-* [2019 Week 45](/2019-wk45): Las Vegas Convention Attendance and Visitor Traffic: Jan 1970 - Oct 2019 
+### [2019 Week 45](/2019-wk45)
+Las Vegas Convention Attendance and Visitor Traffic: Jan 1970 - Oct 2019
+
+* [Source Article](https://www.calculatedriskblog.com/2019/05/las-vegas-convention-attendance-and.html)
+* [Data Source](https://www.lvcva.com/research/visitor-statistics/)
+* Viz
+* [Blog](https://www.surreydatagirl.com/2021/11/did-las-vegas-convention-delegates.html)
