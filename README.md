@@ -12,5 +12,5 @@ Las Vegas Convention Attendance and Visitor Traffic: Jan 1970 - Oct 2019
 
 * [Source Article](https://www.calculatedriskblog.com/2019/05/las-vegas-convention-attendance-and.html)
 * [Data Source](https://www.lvcva.com/research/visitor-statistics/)
-* Viz
+* [Viz](https://public.tableau.com/app/profile/clare.gibson/viz/LasVegasConventionAttendanceMM2019W45/VisitorsandConventionAttendance?publish=yes)
 * [Blog](https://www.surreydatagirl.com/2021/11/did-las-vegas-convention-delegates.html)
