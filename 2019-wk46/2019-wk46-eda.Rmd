@@ -1,0 +1,304 @@
+---
+title: "Makeover Monday 2019 Week 45: UNESCO Global Literacy Rates"
+subtitle: "Data Wrangling and Exploratory Analysis"
+author: "Clare Gibson"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: paper
+    toc: true
+    number_sections: true
+    toc_float: true
+    toc_depth: 2
+---
+
+```{r setup, include=FALSE}
+# Load knitr package
+library(knitr)
+
+# Knitr Options
+opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE,
+	fig.align = 'center'
+)
+```
+
+# Introduction
+This week's [Makeover Monday (MM)](https://www.makeovermonday.co.uk/) challenge looks at global youth and adult literacy rates. The data was compiled by [UNESCO](https://en.unesco.org/) as part of the [Global Education 2030 Agenda](https://unesdoc.unesco.org/ark:/48223/pf0000245656) [Sustainable Development Goal (SDG) 4](https://unesdoc.unesco.org/ark:/48223/pf0000259784). The particular focus for this challenge was [SDG 4.6](https://en.unesco.org/node/265600) which states:
+
+> By 2030, ensure that all youth and a substantial proportion of adults, both men and women, achieve literacy and numeracy.
+
+## The Original Viz
+The original viz this week was a UNESCO Dashboard reflecting the current state of youth literacy across the globe. It appears to have been built as part of the analysis of SDG 4.6.
+
+![UNESCO Global Literacy Dashboard](https://media.data.world/BvJMqfmbTvq2C911Jovs_Dashboard.png)
+
+Unfortunately, the original article to which this visualisation belonged is no longer available. The original dataset provided for the MM challenge can be found [here](https://data.world/makeovermonday/2019w46).
+
+### What I Liked
+
+* Clear use of contrasting colour to differentiate low literacy rates from high ones. The colour tone shifts from blue to red at the 70% level so I assume that anything below 70% is considered low.
+* The Sustainable Development target that this dashboard represents is clearly stated.
+* Enough information has been provided to understand that the map represents literacy rates for the population aged 15-24, for both sexes and for the most recent year of available data.
+* The highlight table does allow us to see the number of countries within each region that have low literacy rates.
+* Metadata is thoroughly explained.
+
+### What I Didn't Like
+
+* This dashboard gives no indication of trends over time so it is difficult to tell which countries may be on track for achieving the goal by 2030.
+* The 'Data By Country' bar chart on the bottom-right seems a little pointless as it is not able to show every country, and the ones it does show are all at 100%, therefore there is no difference in bar height.
+* I don't really understand the 'Parity Index' chart at the bottom of the dashboard. It's not clear to me what each dot represents. A country? I think it is supposed to show me that most of the global illiteracy is among female, rural or poor sub-populations, but this could do with being better explained.
+* I don't like that there are some (significant) countries for which no data is available. I know this is not the fault of the original chart designers but I hate missing data!
+
+## My Intentions
+I am going to focus on just the youth part of the 2030 literacy goal, that is that all countries should achieve full (100%) literacy among their youth (15-24 years) population by 2030.
+
+Since I am working on this project in 2021, I decided to go to the [original data source](http://data.uis.unesco.org/index.aspx?queryid=3482) and gather data for more recent years. I also decided to go back a little further than the original challenge, so my data looks at literacy rates between 2000 and 2021. I am hoping that this wider range of years will allow me to better explore the progress that countries are making towards the 2030 UNESCO youth goal.
+
+I would also like to explore which countries are the biggest contributors to global youth illiteracy, by looking at the data in terms of proportion of global youth population. To do this, I'll need to bring in some additional data on population estimates by country.
+
+## Questions
+
+* Which countries have already achieved the 2030 youth literacy goals?
+* Which countries are on track to achieve the 2030 youth literacy goals?
+* Which countries are likely not to achieve the 2030 youth literacy goals?
+* Which countries are the biggest contributors to global youth illiteracy?
+
+# Data Wrangling
+## Set-up
+First I will load the packages needed for this EDA.
+```{r libraries}
+library(tidyverse)   # for lots of wrangling functions
+library(janitor)     # for cleaning column headings
+```
+
+Now I will read in the data for this project. First I'll define the paths where it is located, then read in the CSV files.
+```{r read-data}
+# path to the literacy data
+path_lit <- "data/2019-wk46-data-literacy-2000-2021.csv"
+
+# path to the population data
+path_pop <- "data/2019-wk46-data-population-2000-2020.csv"
+
+# read in the literacy data
+lit <- read_csv(path_lit)
+
+# read in the population data
+pop <- read_csv(path_pop)
+```
+
+## Inspection
+### General Properties
+I like to start my data inspections by looking at some general properties of each dataset:
+
+* Are the column headings clean and in an R-friendly format?
+* Are there any duplicated rows?
+* Are there any missing values?
+* Is there a unique identifier for each row?
+
+#### Column Headings
+For cleaning the column headings, the `janitor` package has a handy function.
+```{r clean-colnames}
+# clean column headings of literacy data
+lit <- lit %>% 
+  clean_names()
+
+# clean column headings of population data
+pop <- pop %>% 
+  clean_names()
+```
+
+#### Duplicates
+Are there any duplicated rows?
+```{r dups-lit}
+# check for duplicated rows in the literacy data
+lit %>% 
+  duplicated() %>% 
+  table() %>% 
+  kable()
+```
+```{r dups-pop}
+# check for duplicated rows in the population data
+pop %>% 
+  duplicated() %>% 
+  table() %>% 
+  kable()
+```
+
+There are no duplicated rows in either dataset.
+
+#### Missing Values
+Are there any missing values in any of the columns? Credit to [this SO thread](https://stackoverflow.com/questions/24027605/determine-the-number-of-na-values-in-a-column) for helping me determine the number of missing values in each column of a dataframe.
+```{r missing-lit}
+# count the number of missing values in each column of the 
+# literacy data
+colSums(is.na(lit))
+```
+
+```{r missing-pop}
+# count the number of missing values in each column of the 
+# population data
+colSums(is.na(pop))
+```
+
+Both datasets have missing values in the `flag_codes` and `flags` columns. This should not be an issue as the flags are only included if there are caveats that need to be mentioned for the data for that row. The `pop` dataset also has missing values in `value`. I will filter it down to see where these are.
+```{r missing-pop-detail}
+pop %>% 
+  # filter to records with missing data in value
+  filter(is.na(value)) %>% 
+  # show a few examples across different indicators
+  group_by(indicator) %>% 
+  slice_head(n=2) %>% 
+  kable()
+```
+
+It looks like the missing values are in low population countries where the value for a particular demographic may be negligible. I will generate a list of all of the countries that are affected by missing values.
+```{r missing-pop-countries}
+pop %>% 
+  filter(is.na(value)) %>% 
+  select(indicator,
+         country) %>% 
+  group_by(indicator,
+           country) %>% 
+  summarise(count = n()) %>% 
+  kable()
+```
+
+As I thought, the missing values for the population count indicators are all in small countries. It is likely that these countries are not even included in the `lit` dataset so I may not need those observations for my analysis.
+
+#### Unique Identifier
+There is no single column which uniquely identifies each observation in either of these datasets. However, the combination of `indicator`, `location` and `time` should be unique. I will check if this is true in both datasets.
+```{r lit-unique-id}
+# count the number of distinct rows by indicator, location and time
+# save this number to a variable
+c <- lit %>% 
+  distinct(indicator, location, time) %>% 
+  nrow()
+
+# check that this number matches the total number of rows in lit
+c == nrow(lit)
+```
+```{r pop-unique-id}
+# count the number of distinct rows by indicator, location and time
+# save this number to a variable
+d <- pop %>% 
+  distinct(indicator, location, time) %>% 
+  nrow()
+
+# check that this number matches the total number of rows in lit
+d == nrow(pop)
+```
+
+Both outcomes are true therefore, I do have a unique identifier for each row if I combine `indicator`, `location` and `time`. No cleaning required here.
+
+### Inspecting the Data
+Now I can view the first few lines of each dataset.
+```{r head-lit}
+# view the first few lines of the literacy data
+# the kable function is used for table styling only
+kable(head(lit, 3))
+```
+```{r head-pop}
+# view the first few lines of the literacy data
+kable(head(pop, 3))
+```
+
+I will also `glimpse` each dataset to find out the data types of each column.
+```{r glimpse-lit}
+# glimpse the literacy data
+glimpse(lit)
+```
+```{r glimpse-pop}
+# glimpse the population data
+glimpse(pop)
+```
+
+Some observations here:
+
+* I will drop the `sdg_ind` column from `lit` and the `demo_ind` column from `pop` as these are just codified versions of the `indicator` column in each dataset.
+* I should inspect the unique values of the categorical columns (`indicator`, `location`, `country`, `flag_codes` and `flags`) in each dataset to get a feel for how many levels there are, whether any levels should be dropped and whether the naming conventions are consistent between datasets.
+* There are two columns for the year in each dataset (named `time` and `time_2`). I will inspect these more closely to check if the values are identical. If they are then I can drop the `time_2` column.
+* The `indicator` column in each dataset appears to include 2 pieces of information: the name of the indicator and the units used for the value in the `value` column. For tidiness I would like to have each piece of information in its own column.
+* I will need to be careful when performing any aggregations on the `value` column in each dataset, because the values could be expressed in different units depending on the `indicator`. 
+
+#### Unique Values for Categorical Variables
+##### `indicator`
+I will first take a look at the `indicator` column of each dataset and find out what are the unique values and how many observations does each unique value belong to.
+```{r lit-indicator-value-counts}
+# get value counts for indicator column of literacy data
+lit %>% 
+  count(indicator) %>% 
+  kable()
+```
+
+All of the levels look good for the literacy data.
+```{r pop-indicator-value-counts}
+# get value counts for indicator column of population data
+pop %>% 
+  count(indicator) %>% 
+  kable()
+```
+
+For the population dataset, I can drop the rows that are expressed as a percentage ('Population growth (annual %)' and 'Rural population (% of total population)') as these are not useful to my analysis. This will also help to eliminate some of the rows that have missing data.
+
+##### `location` and `country`
+Now I will obtain a list of the unique values of the `location` column in each dataset. Value counts are not so important here, but I would like to check for consistency between the two datasets.
+```{r lit-location-value-counts}
+# generate a list of unique values for the location column in lit
+lit_locations <- unique(lit$location)
+length(lit_locations)
+```
+```{r pop-location-value-counts}
+# generate a list of unique values for the location column in pop
+pop_locations <- unique(pop$location)
+length(pop_locations)
+```
+
+There are 194 unique location values in `lit` and 233 in `pop`. I will explore how many of the values in `lit` are not present in `pop`.
+``` {r lit-location-not-in-pop}
+# which of the unique values in lit are not present in pop?
+lit %>% 
+  select(location, country) %>% 
+  distinct() %>% 
+  filter(!location %in% pop_locations) %>% 
+  kable()
+```
+
+Most of these values relate to aggregations of countries such as `Europe` or `Upper middle income countries`, so I would not expect them to be present in the population dataset. There is however, one country code, `XDN`. This is for Sudan (pre-secession).
+
+Are there any other values for Sudan in the `lit` dataset? Which years are covered by each value?
+```{r lit-sudan}
+lit %>%
+  filter(grepl("Sudan", country)) %>%   
+  group_by(location, country) %>% 
+  summarise(min_year = min(time),
+            max_year = max(time)) %>% 
+  kable()
+```
+
+What values for Sudan exist in the `pop` dataset? Which years are covered by each value?
+```{r pop-sudan}
+pop %>%
+  filter(grepl("Sudan", country)) %>%   
+  group_by(location, country) %>% 
+  summarise(min_year = min(time),
+            max_year = max(time)) %>% 
+  kable()
+```
+
+Given that the `XDN` location is only used in one row in the `lit` dataset, I don't think it will have a significant impact on my analysis.
+
+##### `flag_codes` and `flags`
+
+## Cleaning
+Based on the inspection above, I have identified the following cleaning actions that are required:
+
+* Drop the `sdg_ind` and `time_2` columns from `lit`.
+* Drop the `demo_ind` and `time_2` columns from `pop`.
+* Drop the rows in `pop` relating to indicators for annual population growth and rural population percentage.
+* Split the `indicator` column in each dataset so that the indicator name and the indicator unit are in separate columns.
+
+# Exploratory Data Analysis
+# Conclusions
