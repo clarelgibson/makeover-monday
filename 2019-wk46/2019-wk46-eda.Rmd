@@ -66,12 +66,12 @@ I would also like to explore which countries are the biggest contributors to glo
 * Which countries are likely not to achieve the 2030 youth literacy goals?
 * Which countries are the biggest contributors to global youth illiteracy?
 
-# Data Wrangling
-## Set-up
+# Set-up
 First I will load the packages needed for this EDA.
 ```{r libraries}
 library(tidyverse)   # for lots of wrangling functions
 library(janitor)     # for cleaning column headings
+library(ggplot2)     # for plots
 ```
 
 Now I will read in the data for this project. First I'll define the paths where it is located, then read in the CSV files.
@@ -89,8 +89,24 @@ lit <- read_csv(path_lit)
 pop <- read_csv(path_pop)
 ```
 
-## Inspection
-### General Properties
+# Inspection
+I'll take a look at the first few rows of each dataset.
+```{r head-lit}
+# look at the first few rows of the literacy data
+# the kable function is used for table styling only
+lit %>% 
+  head(3) %>% 
+  kable()
+```
+
+```{r head-pop}
+# look at the first few rows of the population data
+pop %>% 
+  head(3) %>% 
+  kable()
+```
+
+## General Properties
 I like to start my data inspections by looking at some general properties of each dataset:
 
 * Are the column headings clean and in an R-friendly format?
@@ -98,7 +114,7 @@ I like to start my data inspections by looking at some general properties of eac
 * Are there any missing values?
 * Is there a unique identifier for each row?
 
-#### Column Headings
+### Column Headings
 For cleaning the column headings, the `janitor` package has a handy function.
 ```{r clean-colnames}
 # clean column headings of literacy data
@@ -110,7 +126,7 @@ pop <- pop %>%
   clean_names()
 ```
 
-#### Duplicates
+### Duplicates
 Are there any duplicated rows?
 ```{r dups-lit}
 # check for duplicated rows in the literacy data
@@ -129,7 +145,7 @@ pop %>%
 
 There are no duplicated rows in either dataset.
 
-#### Missing Values
+### Missing Values
 Are there any missing values in any of the columns? Credit to [this SO thread](https://stackoverflow.com/questions/24027605/determine-the-number-of-na-values-in-a-column) for helping me determine the number of missing values in each column of a dataframe.
 ```{r missing-lit}
 # count the number of missing values in each column of the 
@@ -157,9 +173,9 @@ pop %>%
 It looks like the missing values are in low population countries where the value for a particular demographic may be negligible. I will generate a list of all of the countries that are affected by missing values.
 ```{r missing-pop-countries}
 pop %>% 
+  # filter to rows with missing values
   filter(is.na(value)) %>% 
-  select(indicator,
-         country) %>% 
+  # show the number of missing values by country
   group_by(indicator,
            country) %>% 
   summarise(count = n()) %>% 
@@ -168,7 +184,7 @@ pop %>%
 
 As I thought, the missing values for the population count indicators are all in small countries. It is likely that these countries are not even included in the `lit` dataset so I may not need those observations for my analysis.
 
-#### Unique Identifier
+### Unique Identifier
 There is no single column which uniquely identifies each observation in either of these datasets. However, the combination of `indicator`, `location` and `time` should be unique. I will check if this is true in both datasets.
 ```{r lit-unique-id}
 # count the number of distinct rows by indicator, location and time
@@ -193,19 +209,8 @@ d == nrow(pop)
 
 Both outcomes are true therefore, I do have a unique identifier for each row if I combine `indicator`, `location` and `time`. No cleaning required here.
 
-### Inspecting the Data
-Now I can view the first few lines of each dataset.
-```{r head-lit}
-# view the first few lines of the literacy data
-# the kable function is used for table styling only
-kable(head(lit, 3))
-```
-```{r head-pop}
-# view the first few lines of the literacy data
-kable(head(pop, 3))
-```
-
-I will also `glimpse` each dataset to find out the data types of each column.
+## Inspecting the Data
+I will `glimpse` each dataset to find out the data types of each column.
 ```{r glimpse-lit}
 # glimpse the literacy data
 glimpse(lit)
@@ -217,15 +222,17 @@ glimpse(pop)
 
 Some observations here:
 
+* In the `lit` data, the `value` column represents the literacy rate, which is the percentage of the relevant population that is literate. The values are expressed as numbers between 0 and 100. For the purposes of working in Tableau later, I would prefer these to be expressed as decimals between 0 and 1.
+* In the `pop` data, the `value` column represents the population count (for some of the `indicator` values). The population counts are expressed in thousands. For the purposes of working in Tableau later I would prefer these to be converted to the full number by multiplying by 1000.
 * I will drop the `sdg_ind` column from `lit` and the `demo_ind` column from `pop` as these are just codified versions of the `indicator` column in each dataset.
 * I should inspect the unique values of the categorical columns (`indicator`, `location`, `country`, `flag_codes` and `flags`) in each dataset to get a feel for how many levels there are, whether any levels should be dropped and whether the naming conventions are consistent between datasets.
+* I should inspect the numerical columns to get a feel for the shape of the data and whether there are any outliers.
 * There are two columns for the year in each dataset (named `time` and `time_2`). I will inspect these more closely to check if the values are identical. If they are then I can drop the `time_2` column.
-* The `indicator` column in each dataset appears to include 2 pieces of information: the name of the indicator and the units used for the value in the `value` column. For tidiness I would like to have each piece of information in its own column.
 * I will need to be careful when performing any aggregations on the `value` column in each dataset, because the values could be expressed in different units depending on the `indicator`. 
 
-#### Unique Values for Categorical Variables
-##### `indicator`
-I will first take a look at the `indicator` column of each dataset and find out what are the unique values and how many observations does each unique value belong to.
+### Unique Values for Categorical Variables
+#### `indicator`
+I will first take a look at the `indicator` column of each dataset and find out what are the unique values and how many observations each unique value belongs to.
 ```{r lit-indicator-value-counts}
 # get value counts for indicator column of literacy data
 lit %>% 
@@ -243,7 +250,7 @@ pop %>%
 
 For the population dataset, I can drop the rows that are expressed as a percentage ('Population growth (annual %)' and 'Rural population (% of total population)') as these are not useful to my analysis. This will also help to eliminate some of the rows that have missing data.
 
-##### `location` and `country`
+#### `location` and `country`
 Now I will obtain a list of the unique values of the `location` column in each dataset. Value counts are not so important here, but I would like to check for consistency between the two datasets.
 ```{r lit-location-value-counts}
 # generate a list of unique values for the location column in lit
@@ -270,6 +277,7 @@ Most of these values relate to aggregations of countries such as `Europe` or `Up
 
 Are there any other values for Sudan in the `lit` dataset? Which years are covered by each value?
 ```{r lit-sudan}
+# find instances of 'Sudan' in the lit dataset
 lit %>%
   filter(grepl("Sudan", country)) %>%   
   group_by(location, country) %>% 
@@ -280,6 +288,7 @@ lit %>%
 
 What values for Sudan exist in the `pop` dataset? Which years are covered by each value?
 ```{r pop-sudan}
+# find instances of 'Sudan' in the pop dataset
 pop %>%
   filter(grepl("Sudan", country)) %>%   
   group_by(location, country) %>% 
@@ -290,15 +299,430 @@ pop %>%
 
 Given that the `XDN` location is only used in one row in the `lit` dataset, I don't think it will have a significant impact on my analysis.
 
-##### `flag_codes` and `flags`
+#### `flag_codes` and `flags`
+I will look at the `flag_codes` and `flags` columns of each dataset and find out what are the unique values and how many observations each unique value belongs to.
+```{r lit-flag-value-counts}
+# get value counts for flag columns of literacy data
+lit %>% 
+  count(flag_codes, flags) %>% 
+  kable()
+```
 
-## Cleaning
+In then literacy data the flags simply indicate when a value was estimated, and by whom.
+```{r pop-flag-value-counts}
+# get value counts for flag columns of population data
+pop %>% 
+  count(flag_codes, flags) %>% 
+  kable()
+```
+
+In the population data the flags indicate when a value was nil or negligible. These flags indicate the missing values.
+
+### Year Columns
+There are two columns for the year in each dataset (named `time` and `time_2`). I will inspect these more closely to check if the values are identical.
+
+```{r years-lit}
+# compare values in time and time_2 to find any that differ
+lit %>% 
+  # select the 2 time columns
+  select(time, time_2) %>% 
+  # add a column to determine if the two values match
+  mutate(match = time == time_2) %>% 
+  # filter for any records that do not match
+  filter(match == FALSE)
+```
+```{r years-pop}
+# compare values in time and time_2 to find any that differ
+pop %>% 
+  # select the 2 time columns
+  select(time, time_2) %>% 
+  # add a column to determine if the two values match
+  mutate(match = time == time_2) %>% 
+  # filter for any records that do not match
+  filter(match == FALSE)
+```
+
+This code returns 0 rows in both datasets, therefore there are no records where the value in `time` differs from the value in `time_2`. I can drop the `time_2` column from both datasets. It will also be helpful to rename the `time` column to `year` so that it better describes the data within.
+
+### Numerical Columns
+I can now take a look at the numerical columns to get a feel for the shape of the data and whether there are any outliers.
+
+#### Literacy data
+I'll start by inspecting the numerical columns in the literacy dataset.
+```{r str-lit}
+# run the numerical summary for the lit dataset
+lit %>% 
+  select_if(is.numeric) %>% 
+  summary() %>% 
+  kable()
+```
+
+The `time` and `time_2` columns look as expected with values ranging from 2000 to 2021, which was the range of years I selected for the data. The `value` column should be displaying percentages, which should all lie between 0 and 100. In this case, that is true. However, I note that the minimum value of 0.19 is extremely low. It suggests that there is an observation for which literacy rate is just 0.19% (or around 2 in 2000 people). I can look at the spread of the data to see if this value is an outlier, or if there are others like it.
+
+Credit to [this article](https://r-charts.com/distribution/histogram-boxplot/) for helping me plot a histogram and box plot together.
+
+```{r box-lit-value}
+# plot a histogram and box plot for the value column in lit
+# histogram
+hist(lit$value,
+     col = "white",
+     main = "")
+
+# add new plot
+par(new = TRUE)
+
+# box plot
+boxplot(lit$value, horizontal = TRUE, axes = FALSE,
+        col = rgb(0, 0.8, 1, alpha = 0.5))
+
+# box around the plots
+box()
+```
+
+This is a clearly left-skewed variable. Most of the values are close to 100% (the median is 86%), but there are several outliers that fall below 20%. I can zone in on these lowest values to find out which countries, indicators and years they represent.
+
+```{r outliers-lit-value}
+# find the lowest 20 values in the lit dataset
+lit %>% 
+  select(indicator, country, time, value) %>%
+  arrange(value) %>% 
+  head(20) %>% 
+  kable()
+```
+
+These extremely low values are largely associated with elderly, female literacy rates across sub-Saharan Africa. It is good to be aware of this.
+
+#### Population Data
+I can now look at the numerical columns of the population data. 
+```{r str-pop}
+# run the numerical summary for the pop dataset
+pop %>%
+  select_if(is.numeric) %>% 
+  summary() %>% 
+  kable()
+```
+
+Again, the `time` and `time_2` columns look as expected with values ranging from 2000 to 2020, which was the range of years I selected for the data. 
+
+I need to be careful with the `value` column, however, because the data in that column is expressed in different units according to the indicator it represents. It would be more helpful to see summaries grouped by `indicator` here.
+```{r str-pop-grouped-by-indicator}
+# create a statistical summary for value in population,
+# grouped by indicator, with missing values removed
+pop %>% 
+  filter(!is.na(value)) %>%
+  group_by(indicator) %>% 
+  summarise(min = min(value),
+            q1 = quantile(value, 0.25),
+            median = median(value),
+            q3 = quantile(value, 0.75),
+            max = max(value),
+            mean = mean(value),
+            sd = sd(value)) %>% 
+  kable()
+```
+
+I added the mean and standard deviation to this summary. The values all appear to be in the expected range. There is a significant difference between the mean and the median for every indicator, suggesting that we are again looking at skewed data. I can plot a boxplot for each indicator to see the spread.
+```{r box-pop-value}
+# box plot for the value column in pop grouped by indicator
+ggplot(pop, aes(x = value, y = indicator)) +
+  geom_boxplot()
+```
+
+This time the data is heavily right-skewed. The boxes of each plot are barely visible as they are concentrated around the 0 mark, but there are some extremely high values, which will be the values for the world's most populous countries.
+
+## Preparing to Join
+Ultimately I would like to join these two datasets together so that I can report population by the matching demographic in the literacy dataset. The population data has categories by age, but not by sex, so there will be some missing data in the resulting join but it will serve the purposes I need for my analysis.
+
+To get the datasets ready to join, I need to prepare the joining columns so that the column headings match in each dataset and contain the same type of data. Any non-joining columns will need to have distinct names in each dataset.
+
+# Cleaning
 Based on the inspection above, I have identified the following cleaning actions that are required:
 
 * Drop the `sdg_ind` and `time_2` columns from `lit`.
 * Drop the `demo_ind` and `time_2` columns from `pop`.
+* Rename `time` as `year`.
+* Rename `value` as `literacy_rate` in `lit` to distinguish it from the `value` column in the `pop` data.
+* Rename `value` as `population` in `pop` to distinguish it from the `value` column in the `lit` data.
+* Rename `flag_codes` and `flags` in each dataset with a prefix to denote which dataset they are from.
 * Drop the rows in `pop` relating to indicators for annual population growth and rural population percentage.
-* Split the `indicator` column in each dataset so that the indicator name and the indicator unit are in separate columns.
+* Convert percentages to proportions (between 0 and 1) in the `lit` dataset.
+* Convert population counts to the full number by multipying by 1000 in the `pop` dataset.
+* Prepare the `indicator` column in each dataset for joining by splitting into constituent parts: `name`, `age_demographic`, `sex_demographic` (for `lit` only) and `units`.
 
-# Exploratory Data Analysis
-# Conclusions
+I will save these changes into new variables so that we retain a copy of the original data.
+
+## Drop Columns
+I will drop the `sdg_ind` and `time_2` columns from `lit`.
+```{r drop-cols-lit}
+# drop unecessary column from literacy data
+lit_c <- lit %>% 
+  select(!c(sdg_ind, time_2))
+
+# check the results
+names(lit_c)
+```
+
+I will drop the `demo_ind` and `time_2` columns from `pop`.
+```{r drop-cols-pop}
+# drop unnecessary columns from the population data
+pop_c <- pop %>% 
+  select(!c(demo_ind, time_2))
+
+# check the results
+names(pop_c)
+```
+
+## Rename Columns
+I will rename the columns as described above in both datasets.
+```{r rename-cols-lit}
+# rename columns in literacy data
+lit_c <- lit_c %>% 
+  rename(year = time,
+         literacy_rate = value,
+         lit_flag_codes = flag_codes,
+         lit_flags = flags)
+
+# check the results
+names(lit_c)
+```
+
+``` {r rename-cols-pop}
+# rename columns in the population data
+pop_c <- pop_c %>% 
+  rename(year = time,
+         population = value,
+         pop_flag_codes = flag_codes,
+         pop_flags = flags)
+
+# check results
+names(pop_c)
+```
+
+## Drop Rows
+I will drop the rows in `pop` relating to indicators for annual population growth and rural population percentage.
+```{r drop-rows-pop}
+# drop rows for unnecessary indicators in pop
+pop_c <- pop_c %>% 
+  filter(!indicator %in% c("Population growth (annual %)",
+                           "Rural population (% of total population)"))
+
+# check the results
+unique(pop_c$indicator)
+```
+
+## Convert Values
+In the `lit` dataset I want to convert the percentages to be a number between 0 and 1.
+```{r convert-percent-lit}
+# convert percentages to proportions (decimal values)
+lit_c <- lit_c %>% 
+  mutate(literacy_rate = literacy_rate / 100)
+
+# check the result
+lit_c$literacy_rate %>% 
+  summary()
+```
+
+In the `pop` dataset I want to convert the population counts to be full numbers (not in thousands).
+```{r convert-population-pop}
+# convert population counts to full numbers
+pop_c <- pop_c %>% 
+  mutate(population = population * 1000)
+
+# check the result
+pop_c$population %>% 
+  summary()
+```
+
+
+## Split `indicator`
+### Literacy Data
+To help me understand how to split this data I will look again at the unique values we have.
+
+```{r unique-vals-indicator-lit}
+lit %>% 
+  select(indicator) %>% 
+  distinct() %>% 
+  kable()
+```
+
+* The part before the first comma (`,`) can be considered as the `indicator_name`.
+* The part before the second comma can be considered as the `age_demographic`.
+* The part before the third comma can be considered as the `sex_demographic`.
+* The part in parentheses can be considered as the `units`.
+
+I will make the split using the `separate()` function. The separate function takes an argument called `sep` that allows us to define one or more delimiters detween columns.
+```{r split-indicator-lit}
+# split the indicator column by non-alphanumeric character
+lit_c <- lit_c %>% 
+  separate(col = indicator,
+           into = c("indicator_name",
+                    "age_demographic",
+                    "sex_demographic",
+                    "units"),
+           sep = "(,|\\(|\\))")
+
+# check the results
+lit_c %>% 
+  head(3) %>% 
+  kable()
+```
+
+Now I need to tidy up some of the new values.
+```{r tidy-split-indicator-lit}
+lit_c <- lit_c %>% 
+  # trim whitespace from new variables
+  mutate(across(c("indicator_name",
+                  "age_demographic",
+                  "sex_demographic",
+                  "units"),
+                str_trim)) %>% 
+  # remove "population " from age_demographic
+  mutate(age_demographic = str_replace(age_demographic,
+                                       "population ",
+                                       "")) %>%
+  # convert sex_demographic to title case
+  mutate(sex_demographic = str_to_title(sex_demographic)) %>% 
+  # drop the units column
+  select(!units)
+
+# check the results
+lit_c %>% 
+  head(3) %>% 
+  kable()
+```
+
+### Population Data
+To help me understand how to split this data I will look again at the unique values.
+```{r unique-vals-indicator-pop}
+pop_c %>% 
+  select(indicator) %>% 
+  distinct() %>% 
+  kable()
+```
+
+Looking at this I need to make a few changes:
+
+* I can drop the rows for 'Total Population (thousands)' and 'Population aged 14 years or younger (thousands)' as they don't link to any of the rows in the `lit` dataset.
+* I need to derive data for the population aged 15+ years by adding together the values for 15-24, 25-64 and 65+.
+
+First I drop the unnecessary rows.
+```{r drop-rows-pop-indicator}
+# drop rows for further unnecessary indicators in pop
+pop_c <- pop_c %>% 
+  filter(!indicator %in% c("Total population (thousands)",
+                           "Population aged 14 years or younger (thousands)"))
+
+# check the results
+unique(pop_c$indicator)
+```
+
+Next, I rename the current values for indicator with values that will match the `lit` data.
+```{r rename-indicators-pop}
+# rename indicators to match lit data
+pop_c <- pop_c %>% 
+  mutate(indicator = case_when(
+    grepl("25-64", indicator) ~ "25-64 years",
+    grepl("65", indicator) ~ "65+ years",
+    grepl("15-24", indicator) ~ "15-24 years"))
+
+# check the results
+unique(pop_c$indicator)
+```
+
+Now I pivot this data temporarily to allow me to calculate the new value.
+```{r pivot-pop}
+# pivot the indicators to wide format
+pop_c <- pop_c %>% 
+  pivot_wider(names_from = indicator,
+              values_from = population)
+
+# check the results
+pop_c %>% 
+  head(3) %>% 
+  kable()
+```
+
+Now I can calculate the new variable.
+```{r calc-pop}
+# calculate a value for population aged 15+
+pop_c <- pop_c %>% 
+  mutate(`15+ years` = `15-24 years` +
+                       `25-64 years` +
+                       `65+ years`)
+
+# check the results
+pop_c %>% 
+  head(3) %>% 
+  kable()
+```
+
+Lastly, I can re-pivot the data so that indicators fall into a single column.
+```{r pivot-longer-pop}
+# pivot the population columns to a single column
+pop_c <- pop_c %>% 
+  pivot_longer(cols = contains("years"),
+               names_to = "age_demographic",
+               values_to = "population")
+
+# check the results
+pop_c %>% 
+  head(3) %>% 
+  kable()
+```
+
+## Join the Datasets
+Now I am ready to join the two datasets. I will start by looking at the column names in each dataset.
+```{r colnames-lit}
+names(lit_c)
+```
+
+```{r colnames-pop}
+names(pop_c)
+```
+
+The joining columns will be `location`, `country`, `year` and `age_demographic`. I want to be sure that the `country` column follows the same naming conventions for countries in both datasets (meaning that each value of `location` has the same value of `country` in both datasets).
+```{r check-country-names}
+# check that locations and countries are the same in the two
+# get unique country values from lit
+lit_countries <- lit_c %>% 
+  select(location, country) %>% 
+  rename(lit_country = country) %>% 
+  distinct()
+
+# get unique country values from pop
+pop_countries <- pop_c %>% 
+  select(location, country) %>% 
+  rename(pop_country = country) %>% 
+  distinct()
+
+# join the country values together
+join_countries <- lit_countries %>% 
+  full_join(pop_countries)
+
+# check if the country names match
+join_countries <- join_countries %>%
+  mutate(match = lit_country == pop_country)
+
+# return any false matches
+join_countries %>% 
+  filter(match == FALSE)
+```
+
+Great there are no results here, so the country names match up perfectly. I can go ahead and join the two datasets and save the results to a final dataframe `df`.
+```{r join-datasets}
+# join the datasets
+df <- lit_c %>% 
+  left_join(pop_c)
+
+# check the results
+df %>% 
+  head(3) %>% 
+  kable()
+```
+
+# Export
+Now all the cleaning is completed I can export the clean dataset back out as a CSV file for use in Tableau.
+```{r export-csv}
+# write a new csv file for the clean data
+write_csv(df, "data/2019-wk46-data-clean.csv")
+```
