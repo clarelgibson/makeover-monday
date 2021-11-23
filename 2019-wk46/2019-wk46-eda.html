@@ -11,7 +11,7 @@
 
 <meta name="author" content="Clare Gibson" />
 
-<meta name="date" content="2021-11-19" />
+<meta name="date" content="2021-11-23" />
 
 <title>Makeover Monday 2019 Week 45: UNESCO Global Literacy Rates</title>
 
@@ -244,7 +244,7 @@ div.tocify {
 <h1 class="title toc-ignore">Makeover Monday 2019 Week 45: UNESCO Global Literacy Rates</h1>
 <h3 class="subtitle">Data Wrangling and Exploratory Analysis</h3>
 <h4 class="author">Clare Gibson</h4>
-<h4 class="date">2021-11-19</h4>
+<h4 class="date">2021-11-23</h4>
 
 </div>
 
@@ -292,10 +292,10 @@ div.tocify {
 <div id="questions" class="section level2" number="1.3">
 <h2 number="1.3"><span class="header-section-number">1.3</span> Questions</h2>
 <ul>
-<li>Which countries have already achieved the 2030 youth literacy goals?</li>
-<li>Which countries are on track to achieve the 2030 youth literacy goals?</li>
-<li>Which countries are likely not to achieve the 2030 youth literacy goals?</li>
+<li>Which countries are still working towards the 2030 youth literacy goal?</li>
 <li>Which countries are the biggest contributors to global youth illiteracy?</li>
+<li>Which countries are on track to achieve the 2030 youth literacy goal?</li>
+<li>Which countries are likely not to achieve the 2030 youth literacy goal?</li>
 </ul>
 </div>
 </div>
@@ -1790,6 +1790,7 @@ pop %&gt;%
 </tbody>
 </table>
 <p>Again, the <code>time</code> and <code>time_2</code> columns look as expected with values ranging from 2000 to 2020, which was the range of years I selected for the data.</p>
+<p>One thing to note here is that the latest year in the population data is 2020, whereas in the literacy data it is 2021. I would like to include an estimate of 2021 population data, so I will attempt to impute this value for each country.</p>
 <p>I need to be careful with the <code>value</code> column, however, because the data in that column is expressed in different units according to the indicator it represents. It would be more helpful to see summaries grouped by <code>indicator</code> here.</p>
 <pre class="r"><code># create a statistical summary for value in population,
 # grouped by indicator, with missing values removed
@@ -1928,6 +1929,7 @@ ggplot(pop, aes(x = value, y = indicator)) +
 <li>Drop the rows in <code>pop</code> relating to indicators for annual population growth and rural population percentage.</li>
 <li>Convert percentages to proportions (between 0 and 1) in the <code>lit</code> dataset.</li>
 <li>Convert population counts to the full number by multipying by 1000 in the <code>pop</code> dataset.</li>
+<li>Impute values for 2021 population estimates in <code>pop</code>.</li>
 <li>Prepare the <code>indicator</code> column in each dataset for joining by splitting into constituent parts: <code>name</code>, <code>age_demographic</code>, <code>sex_demographic</code> (for <code>lit</code> only) and <code>units</code>.</li>
 </ul>
 <p>I will save these changes into new variables so that we retain a copy of the original data.</p>
@@ -2017,10 +2019,88 @@ pop_c$population %&gt;%
 <pre><code>##      Min.   1st Qu.    Median      Mean   3rd Qu.      Max.      NA&#39;s 
 ## 1.000e+03 1.010e+05 1.124e+06 1.215e+07 5.895e+06 1.439e+09       309</code></pre>
 </div>
-<div id="split-indicator" class="section level2" number="4.5">
-<h2 number="4.5"><span class="header-section-number">4.5</span> Split <code>indicator</code></h2>
-<div id="literacy-data-1" class="section level3" number="4.5.1">
-<h3 number="4.5.1"><span class="header-section-number">4.5.1</span> Literacy Data</h3>
+<div id="impute-2021-population-values" class="section level2" number="4.5">
+<h2 number="4.5"><span class="header-section-number">4.5</span> Impute 2021 Population Values</h2>
+<p>The simplest way to impute these values will be to assume the 2020 value. To do this, I will extract the 2020 values from the <code>pop_c</code> dataframe, convert the year to 2021 and then bind those back as new rows to <code>pop_c</code></p>
+<pre class="r"><code># extract 2020 values and relabel as 2021
+pop_c_2021 &lt;- pop_c %&gt;% 
+  filter(year == 2020) %&gt;% 
+  mutate(year = 2021)
+
+# bind rows onto pop_c
+pop_c &lt;- pop_c %&gt;% 
+  bind_rows(pop_c_2021)
+
+# check results
+pop_c %&gt;% 
+  arrange(location, indicator, desc(year)) %&gt;% 
+  head(5) %&gt;% 
+  kable()</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="left">indicator</th>
+<th align="left">location</th>
+<th align="left">country</th>
+<th align="right">year</th>
+<th align="right">population</th>
+<th align="left">pop_flag_codes</th>
+<th align="left">pop_flags</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Population aged 14 years or younger (thousands)</td>
+<td align="left">ABW</td>
+<td align="left">Aruba</td>
+<td align="right">2021</td>
+<td align="right">19000</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+</tr>
+<tr class="even">
+<td align="left">Population aged 14 years or younger (thousands)</td>
+<td align="left">ABW</td>
+<td align="left">Aruba</td>
+<td align="right">2020</td>
+<td align="right">19000</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+</tr>
+<tr class="odd">
+<td align="left">Population aged 14 years or younger (thousands)</td>
+<td align="left">ABW</td>
+<td align="left">Aruba</td>
+<td align="right">2019</td>
+<td align="right">19000</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+</tr>
+<tr class="even">
+<td align="left">Population aged 14 years or younger (thousands)</td>
+<td align="left">ABW</td>
+<td align="left">Aruba</td>
+<td align="right">2018</td>
+<td align="right">19000</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+</tr>
+<tr class="odd">
+<td align="left">Population aged 14 years or younger (thousands)</td>
+<td align="left">ABW</td>
+<td align="left">Aruba</td>
+<td align="right">2017</td>
+<td align="right">19000</td>
+<td align="left">NA</td>
+<td align="left">NA</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="split-indicator" class="section level2" number="4.6">
+<h2 number="4.6"><span class="header-section-number">4.6</span> Split <code>indicator</code></h2>
+<div id="literacy-data-1" class="section level3" number="4.6.1">
+<h3 number="4.6.1"><span class="header-section-number">4.6.1</span> Literacy Data</h3>
 <p>To help me understand how to split this data I will look again at the unique values we have.</p>
 <pre class="r"><code>lit %&gt;% 
   select(indicator) %&gt;% 
@@ -2240,8 +2320,8 @@ lit_c %&gt;%
 </tbody>
 </table>
 </div>
-<div id="population-data-1" class="section level3" number="4.5.2">
-<h3 number="4.5.2"><span class="header-section-number">4.5.2</span> Population Data</h3>
+<div id="population-data-1" class="section level3" number="4.6.2">
+<h3 number="4.6.2"><span class="header-section-number">4.6.2</span> Population Data</h3>
 <p>To help me understand how to split this data I will look again at the unique values.</p>
 <pre class="r"><code>pop_c %&gt;% 
   select(indicator) %&gt;% 
@@ -2491,8 +2571,8 @@ pop_c %&gt;%
 </table>
 </div>
 </div>
-<div id="join-the-datasets" class="section level2" number="4.6">
-<h2 number="4.6"><span class="header-section-number">4.6</span> Join the Datasets</h2>
+<div id="join-the-datasets" class="section level2" number="4.7">
+<h2 number="4.7"><span class="header-section-number">4.7</span> Join the Datasets</h2>
 <p>Now I am ready to join the two datasets. I will start by looking at the column names in each dataset.</p>
 <pre class="r"><code>names(lit_c)</code></pre>
 <pre><code>## [1] &quot;indicator_name&quot;  &quot;age_demographic&quot; &quot;sex_demographic&quot; &quot;location&quot;       
@@ -2616,8 +2696,712 @@ df %&gt;%
 </table>
 </div>
 </div>
-<div id="export" class="section level1" number="5">
-<h1 number="5"><span class="header-section-number">5</span> Export</h1>
+<div id="exploratory-data-analysis" class="section level1" number="5">
+<h1 number="5"><span class="header-section-number">5</span> Exploratory Data Analysis</h1>
+<div id="q1.-which-countries-are-still-working-towards-the-2030-youth-literacy-goals" class="section level2" number="5.1">
+<h2 number="5.1"><span class="header-section-number">5.1</span> Q1. Which countries are still working towards the 2030 youth literacy goals?</h2>
+<p>The goal states that by 2030, all youth should achieve literacy and numeracy. For the purposes of my analysis I will assume that any country that has achieved a literacy rate of 95% or greater has achieved the goal. I will take the literacy rate from the most recently available year for each country in order to determine whether they have met the goal.</p>
+<p>I will create a subset of the original data which is filtered to the most recent year for each location and demographic, and then determine whether the country has met the goal or not. I can then join this information back into the original <code>df</code>.</p>
+<pre class="r"><code># create a helper df to determine whether the youth goal has
+# been met for each location and sex demographic.
+df_youth_met &lt;- df %&gt;% 
+  filter(indicator_name == &quot;Youth literacy rate&quot;) %&gt;% 
+  group_by(location, sex_demographic) %&gt;% 
+  slice_max(year) %&gt;% 
+  ungroup() %&gt;% 
+  mutate(youth_goal_met = if_else(literacy_rate &gt;= 0.95,
+                                  TRUE,
+                                  FALSE))
+
+# join the youth goal status back into df
+df &lt;- df %&gt;% 
+  left_join(df_youth_met)</code></pre>
+<p>Now I can generate a table of the countries that are still working towards the 2030 youth literacy goal and their current (most recent) youth literacy rates.</p>
+<pre class="r"><code># subset the data
+q1 &lt;- df %&gt;% 
+  filter(youth_goal_met == FALSE,           # keeps unmet only
+         sex_demographic == &quot;Both Sexes&quot;,   # both sexes only
+         grepl(&quot;\\D&quot;, location)) %&gt;%        # exclude regional aggs
+  select(country, literacy_rate) %&gt;% 
+  arrange(literacy_rate)
+
+# generate a table caption
+q1_cpt &lt;- paste(&quot;List of&quot;,nrow(q1),&quot;countries still working towards 2030 youth literacy goals&quot;)
+
+# print the table with caption
+q1 %&gt;% 
+  kable(caption=q1_cpt)</code></pre>
+<table>
+<caption>List of 59 countries still working towards 2030 youth literacy goals</caption>
+<thead>
+<tr class="header">
+<th align="left">country</th>
+<th align="right">literacy_rate</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Chad</td>
+<td align="right">0.3079161</td>
+</tr>
+<tr class="even">
+<td align="left">Central African Republic</td>
+<td align="right">0.3826865</td>
+</tr>
+<tr class="odd">
+<td align="left">Niger</td>
+<td align="right">0.4346000</td>
+</tr>
+<tr class="even">
+<td align="left">Mali</td>
+<td align="right">0.4615734</td>
+</tr>
+<tr class="odd">
+<td align="left">South Sudan</td>
+<td align="right">0.4790096</td>
+</tr>
+<tr class="even">
+<td align="left">Guinea</td>
+<td align="right">0.5394052</td>
+</tr>
+<tr class="odd">
+<td align="left">Liberia</td>
+<td align="right">0.5539870</td>
+</tr>
+<tr class="even">
+<td align="left">Afghanistan</td>
+<td align="right">0.5592940</td>
+</tr>
+<tr class="odd">
+<td align="left">Burkina Faso</td>
+<td align="right">0.5887398</td>
+</tr>
+<tr class="even">
+<td align="left">Guinea-Bissau</td>
+<td align="right">0.6040235</td>
+</tr>
+<tr class="odd">
+<td align="left">Benin</td>
+<td align="right">0.6094808</td>
+</tr>
+<tr class="even">
+<td align="left">Mauritania</td>
+<td align="right">0.6394781</td>
+</tr>
+<tr class="odd">
+<td align="left">Sierra Leone</td>
+<td align="right">0.6664860</td>
+</tr>
+<tr class="even">
+<td align="left">Gambia</td>
+<td align="right">0.6716138</td>
+</tr>
+<tr class="odd">
+<td align="left">Papua New Guinea</td>
+<td align="right">0.6790000</td>
+</tr>
+<tr class="even">
+<td align="left">Senegal</td>
+<td align="right">0.6947841</td>
+</tr>
+<tr class="odd">
+<td align="left">Mozambique</td>
+<td align="right">0.7091245</td>
+</tr>
+<tr class="even">
+<td align="left">Pakistan</td>
+<td align="right">0.7270356</td>
+</tr>
+<tr class="odd">
+<td align="left">Ethiopia</td>
+<td align="right">0.7275482</td>
+</tr>
+<tr class="even">
+<td align="left">Malawi</td>
+<td align="right">0.7293561</td>
+</tr>
+<tr class="odd">
+<td align="left">Sudan</td>
+<td align="right">0.7300000</td>
+</tr>
+<tr class="even">
+<td align="left">Nigeria</td>
+<td align="right">0.7502875</td>
+</tr>
+<tr class="odd">
+<td align="left">Yemen</td>
+<td align="right">0.7700000</td>
+</tr>
+<tr class="even">
+<td align="left">Angola</td>
+<td align="right">0.7743113</td>
+</tr>
+<tr class="odd">
+<td align="left">Sudan (pre-secession)</td>
+<td align="right">0.7815559</td>
+</tr>
+<tr class="even">
+<td align="left">Comoros</td>
+<td align="right">0.7827039</td>
+</tr>
+<tr class="odd">
+<td align="left">Madagascar</td>
+<td align="right">0.7985117</td>
+</tr>
+<tr class="even">
+<td align="left">Congo</td>
+<td align="right">0.8205479</td>
+</tr>
+<tr class="odd">
+<td align="left">Haiti</td>
+<td align="right">0.8299425</td>
+</tr>
+<tr class="even">
+<td align="left">Timor-Leste</td>
+<td align="right">0.8353903</td>
+</tr>
+<tr class="odd">
+<td align="left">Côte d’Ivoire</td>
+<td align="right">0.8362647</td>
+</tr>
+<tr class="even">
+<td align="left">Belize</td>
+<td align="right">0.8422305</td>
+</tr>
+<tr class="odd">
+<td align="left">Democratic Republic of the Congo</td>
+<td align="right">0.8498951</td>
+</tr>
+<tr class="even">
+<td align="left">Cameroon</td>
+<td align="right">0.8508000</td>
+</tr>
+<tr class="odd">
+<td align="left">United Republic of Tanzania</td>
+<td align="right">0.8575514</td>
+</tr>
+<tr class="even">
+<td align="left">Rwanda</td>
+<td align="right">0.8649277</td>
+</tr>
+<tr class="odd">
+<td align="left">Lesotho</td>
+<td align="right">0.8663220</td>
+</tr>
+<tr class="even">
+<td align="left">Kenya</td>
+<td align="right">0.8783000</td>
+</tr>
+<tr class="odd">
+<td align="left">Togo</td>
+<td align="right">0.8789144</td>
+</tr>
+<tr class="even">
+<td align="left">Egypt</td>
+<td align="right">0.8819256</td>
+</tr>
+<tr class="odd">
+<td align="left">Burundi</td>
+<td align="right">0.8822177</td>
+</tr>
+<tr class="even">
+<td align="left">Uganda</td>
+<td align="right">0.8939631</td>
+</tr>
+<tr class="odd">
+<td align="left">Gabon</td>
+<td align="right">0.8978366</td>
+</tr>
+<tr class="even">
+<td align="left">Zimbabwe</td>
+<td align="right">0.9042812</td>
+</tr>
+<tr class="odd">
+<td align="left">Nicaragua</td>
+<td align="right">0.9157178</td>
+</tr>
+<tr class="even">
+<td align="left">India</td>
+<td align="right">0.9166404</td>
+</tr>
+<tr class="odd">
+<td align="left">Zambia</td>
+<td align="right">0.9209157</td>
+</tr>
+<tr class="even">
+<td align="left">Cambodia</td>
+<td align="right">0.9221236</td>
+</tr>
+<tr class="odd">
+<td align="left">Puerto Rico</td>
+<td align="right">0.9238983</td>
+</tr>
+<tr class="even">
+<td align="left">Nepal</td>
+<td align="right">0.9239381</td>
+</tr>
+<tr class="odd">
+<td align="left">Syrian Arab Republic</td>
+<td align="right">0.9245381</td>
+</tr>
+<tr class="even">
+<td align="left">Lao People’s Democratic Republic</td>
+<td align="right">0.9246264</td>
+</tr>
+<tr class="odd">
+<td align="left">Ghana</td>
+<td align="right">0.9249097</td>
+</tr>
+<tr class="even">
+<td align="left">Bhutan</td>
+<td align="right">0.9309063</td>
+</tr>
+<tr class="odd">
+<td align="left">Eritrea</td>
+<td align="right">0.9327239</td>
+</tr>
+<tr class="even">
+<td align="left">Iraq</td>
+<td align="right">0.9350000</td>
+</tr>
+<tr class="odd">
+<td align="left">Bangladesh</td>
+<td align="right">0.9446178</td>
+</tr>
+<tr class="even">
+<td align="left">Guatemala</td>
+<td align="right">0.9460415</td>
+</tr>
+<tr class="odd">
+<td align="left">Qatar</td>
+<td align="right">0.9464411</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="q2.-which-countries-are-the-biggest-contributors-to-global-youth-illiteracy" class="section level2" number="5.2">
+<h2 number="5.2"><span class="header-section-number">5.2</span> Q2. Which countries are the biggest contributors to global youth illiteracy?</h2>
+<p>To answer this question, I want to look at how many illiterate people each country is contributing to the total based on their youth literacy rate and youth population estimate. Then I can determine the biggest contributors by population. While the table above shows that there are countries with extremely low literacy rates, some of those countries have relatively low populations. It will be interesting to see whether some of the more populous countries (e.g. India) are making a bigger contribution to youth illiteracy depsite having a higher literacy rate.</p>
+<p>First I need to add a column for the illiteracy rate (which is 1 minus the literacy rate) and the total illiterate population, which is the illiteracy rate multiplied by the total population.</p>
+<pre class="r"><code># add columns for illiteracy rate and illiterate population
+df &lt;- df %&gt;% 
+  mutate(illiteracy_rate = 1 - literacy_rate,
+         illiterate_population = illiteracy_rate * population)
+
+# check the results
+df %&gt;% 
+  filter(!is.na(illiterate_population)) %&gt;% 
+  select(indicator_name,
+         age_demographic,
+         sex_demographic,
+         location,
+         country,
+         year,
+         literacy_rate,
+         illiteracy_rate,
+         population,
+         illiterate_population) %&gt;% 
+  head(3) %&gt;% 
+  kable()</code></pre>
+<table style="width:100%;">
+<colgroup>
+<col width="14%" />
+<col width="11%" />
+<col width="11%" />
+<col width="6%" />
+<col width="7%" />
+<col width="3%" />
+<col width="10%" />
+<col width="11%" />
+<col width="7%" />
+<col width="15%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">indicator_name</th>
+<th align="left">age_demographic</th>
+<th align="left">sex_demographic</th>
+<th align="left">location</th>
+<th align="left">country</th>
+<th align="right">year</th>
+<th align="right">literacy_rate</th>
+<th align="right">illiteracy_rate</th>
+<th align="right">population</th>
+<th align="right">illiterate_population</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Adult literacy rate</td>
+<td align="left">15+ years</td>
+<td align="left">Female</td>
+<td align="left">GTM</td>
+<td align="left">Guatemala</td>
+<td align="right">2002</td>
+<td align="right">0.6334138</td>
+<td align="right">0.3665862</td>
+<td align="right">6937000</td>
+<td align="right">2543008</td>
+</tr>
+<tr class="even">
+<td align="left">Adult literacy rate</td>
+<td align="left">15+ years</td>
+<td align="left">Female</td>
+<td align="left">GTM</td>
+<td align="left">Guatemala</td>
+<td align="right">2012</td>
+<td align="right">0.7242804</td>
+<td align="right">0.2757196</td>
+<td align="right">9459000</td>
+<td align="right">2608032</td>
+</tr>
+<tr class="odd">
+<td align="left">Adult literacy rate</td>
+<td align="left">15+ years</td>
+<td align="left">Female</td>
+<td align="left">GTM</td>
+<td align="left">Guatemala</td>
+<td align="right">2013</td>
+<td align="right">0.7212759</td>
+<td align="right">0.2787241</td>
+<td align="right">9752000</td>
+<td align="right">2718117</td>
+</tr>
+</tbody>
+</table>
+<p>Now, I can prepare a table to show the biggest contributors to youth illiteracy by population.</p>
+<pre class="r"><code># subset the data
+q2 &lt;- df %&gt;% 
+  filter(youth_goal_met == FALSE,           # keeps unmet only
+         sex_demographic == &quot;Both Sexes&quot;,   # both sexes only
+         grepl(&quot;\\D&quot;, location)) %&gt;%        # exclude regional aggs
+  select(country, illiteracy_rate, illiterate_population) %&gt;% 
+  arrange(-illiterate_population)
+
+# generate a table caption
+q2_cpt &lt;- paste(&quot;List of&quot;,nrow(q2),&quot;biggest contributors to global youth illiteracy by population&quot;)
+
+# print the table with caption
+q2 %&gt;% 
+  kable(caption=q2_cpt)</code></pre>
+<table>
+<caption>List of 59 biggest contributors to global youth illiteracy by population</caption>
+<thead>
+<tr class="header">
+<th align="left">country</th>
+<th align="right">illiteracy_rate</th>
+<th align="right">illiterate_population</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">India</td>
+<td align="right">0.0833596</td>
+<td align="right">20537888.169</td>
+</tr>
+<tr class="even">
+<td align="left">Pakistan</td>
+<td align="right">0.2729644</td>
+<td align="right">11556493.803</td>
+</tr>
+<tr class="odd">
+<td align="left">Nigeria</td>
+<td align="right">0.2497125</td>
+<td align="right">9364718.175</td>
+</tr>
+<tr class="even">
+<td align="left">Ethiopia</td>
+<td align="right">0.2724518</td>
+<td align="right">6272657.791</td>
+</tr>
+<tr class="odd">
+<td align="left">Afghanistan</td>
+<td align="right">0.4407060</td>
+<td align="right">3770680.536</td>
+</tr>
+<tr class="even">
+<td align="left">Niger</td>
+<td align="right">0.5654000</td>
+<td align="right">2439701.000</td>
+</tr>
+<tr class="odd">
+<td align="left">Sudan</td>
+<td align="right">0.2700000</td>
+<td align="right">2295270.000</td>
+</tr>
+<tr class="even">
+<td align="left">Democratic Republic of the Congo</td>
+<td align="right">0.1501049</td>
+<td align="right">2235212.066</td>
+</tr>
+<tr class="odd">
+<td align="left">Mali</td>
+<td align="right">0.5384266</td>
+<td align="right">2167705.492</td>
+</tr>
+<tr class="even">
+<td align="left">Chad</td>
+<td align="right">0.6920839</td>
+<td align="right">2044415.841</td>
+</tr>
+<tr class="odd">
+<td align="left">Egypt</td>
+<td align="right">0.1180744</td>
+<td align="right">1973259.373</td>
+</tr>
+<tr class="even">
+<td align="left">Bangladesh</td>
+<td align="right">0.0553822</td>
+<td align="right">1707100.933</td>
+</tr>
+<tr class="odd">
+<td align="left">Mozambique</td>
+<td align="right">0.2908755</td>
+<td align="right">1682423.892</td>
+</tr>
+<tr class="even">
+<td align="left">Burkina Faso</td>
+<td align="right">0.4112602</td>
+<td align="right">1628590.392</td>
+</tr>
+<tr class="odd">
+<td align="left">United Republic of Tanzania</td>
+<td align="right">0.1424486</td>
+<td align="right">1424913.346</td>
+</tr>
+<tr class="even">
+<td align="left">Kenya</td>
+<td align="right">0.1217000</td>
+<td align="right">1291115.300</td>
+</tr>
+<tr class="odd">
+<td align="left">Guinea</td>
+<td align="right">0.4605948</td>
+<td align="right">1223800.384</td>
+</tr>
+<tr class="even">
+<td align="left">Angola</td>
+<td align="right">0.2256887</td>
+<td align="right">1175838.127</td>
+</tr>
+<tr class="odd">
+<td align="left">South Sudan</td>
+<td align="right">0.5209904</td>
+<td align="right">1156598.688</td>
+</tr>
+<tr class="even">
+<td align="left">Madagascar</td>
+<td align="right">0.2014883</td>
+<td align="right">1089850.215</td>
+</tr>
+<tr class="odd">
+<td align="left">Yemen</td>
+<td align="right">0.2300000</td>
+<td align="right">956110.000</td>
+</tr>
+<tr class="even">
+<td align="left">Uganda</td>
+<td align="right">0.1060369</td>
+<td align="right">939699.008</td>
+</tr>
+<tr class="odd">
+<td align="left">Malawi</td>
+<td align="right">0.2706439</td>
+<td align="right">934533.387</td>
+</tr>
+<tr class="even">
+<td align="left">Senegal</td>
+<td align="right">0.3052159</td>
+<td align="right">924498.961</td>
+</tr>
+<tr class="odd">
+<td align="left">Benin</td>
+<td align="right">0.3905192</td>
+<td align="right">889993.257</td>
+</tr>
+<tr class="even">
+<td align="left">Côte d’Ivoire</td>
+<td align="right">0.1637353</td>
+<td align="right">870253.120</td>
+</tr>
+<tr class="odd">
+<td align="left">Cameroon</td>
+<td align="right">0.1492000</td>
+<td align="right">744955.600</td>
+</tr>
+<tr class="even">
+<td align="left">Central African Republic</td>
+<td align="right">0.6173135</td>
+<td align="right">623486.635</td>
+</tr>
+<tr class="odd">
+<td align="left">Sierra Leone</td>
+<td align="right">0.3335140</td>
+<td align="right">517947.242</td>
+</tr>
+<tr class="even">
+<td align="left">Iraq</td>
+<td align="right">0.0650000</td>
+<td align="right">489515.000</td>
+</tr>
+<tr class="odd">
+<td align="left">Nepal</td>
+<td align="right">0.0760619</td>
+<td align="right">481015.456</td>
+</tr>
+<tr class="even">
+<td align="left">Papua New Guinea</td>
+<td align="right">0.3210000</td>
+<td align="right">446190.000</td>
+</tr>
+<tr class="odd">
+<td align="left">Ghana</td>
+<td align="right">0.0750903</td>
+<td align="right">434923.018</td>
+</tr>
+<tr class="even">
+<td align="left">Liberia</td>
+<td align="right">0.4460130</td>
+<td align="right">408993.921</td>
+</tr>
+<tr class="odd">
+<td align="left">Haiti</td>
+<td align="right">0.1700575</td>
+<td align="right">365963.740</td>
+</tr>
+<tr class="even">
+<td align="left">Rwanda</td>
+<td align="right">0.1350723</td>
+<td align="right">325389.171</td>
+</tr>
+<tr class="odd">
+<td align="left">Syrian Arab Republic</td>
+<td align="right">0.0754619</td>
+<td align="right">299659.205</td>
+</tr>
+<tr class="even">
+<td align="left">Mauritania</td>
+<td align="right">0.3605219</td>
+<td align="right">297070.046</td>
+</tr>
+<tr class="odd">
+<td align="left">Zambia</td>
+<td align="right">0.0790843</td>
+<td align="right">285098.901</td>
+</tr>
+<tr class="even">
+<td align="left">Zimbabwe</td>
+<td align="right">0.0957188</td>
+<td align="right">269065.547</td>
+</tr>
+<tr class="odd">
+<td align="left">Burundi</td>
+<td align="right">0.1177823</td>
+<td align="right">249698.476</td>
+</tr>
+<tr class="even">
+<td align="left">Cambodia</td>
+<td align="right">0.0778764</td>
+<td align="right">249048.727</td>
+</tr>
+<tr class="odd">
+<td align="left">Guatemala</td>
+<td align="right">0.0539585</td>
+<td align="right">197218.318</td>
+</tr>
+<tr class="even">
+<td align="left">Togo</td>
+<td align="right">0.1210856</td>
+<td align="right">191799.590</td>
+</tr>
+<tr class="odd">
+<td align="left">Congo</td>
+<td align="right">0.1794521</td>
+<td align="right">175683.606</td>
+</tr>
+<tr class="even">
+<td align="left">Gambia</td>
+<td align="right">0.3283862</td>
+<td align="right">141862.838</td>
+</tr>
+<tr class="odd">
+<td align="left">Guinea-Bissau</td>
+<td align="right">0.3959765</td>
+<td align="right">136215.916</td>
+</tr>
+<tr class="even">
+<td align="left">Lao People’s Democratic Republic</td>
+<td align="right">0.0753736</td>
+<td align="right">106276.776</td>
+</tr>
+<tr class="odd">
+<td align="left">Nicaragua</td>
+<td align="right">0.0842822</td>
+<td align="right">101981.462</td>
+</tr>
+<tr class="even">
+<td align="left">Lesotho</td>
+<td align="right">0.1336780</td>
+<td align="right">56679.472</td>
+</tr>
+<tr class="odd">
+<td align="left">Timor-Leste</td>
+<td align="right">0.1646097</td>
+<td align="right">45103.058</td>
+</tr>
+<tr class="even">
+<td align="left">Eritrea</td>
+<td align="right">0.0672761</td>
+<td align="right">41980.286</td>
+</tr>
+<tr class="odd">
+<td align="left">Gabon</td>
+<td align="right">0.1021634</td>
+<td align="right">37493.968</td>
+</tr>
+<tr class="even">
+<td align="left">Comoros</td>
+<td align="right">0.2172961</td>
+<td align="right">35419.264</td>
+</tr>
+<tr class="odd">
+<td align="left">Qatar</td>
+<td align="right">0.0535589</td>
+<td align="right">20780.853</td>
+</tr>
+<tr class="even">
+<td align="left">Bhutan</td>
+<td align="right">0.0690937</td>
+<td align="right">10433.149</td>
+</tr>
+<tr class="odd">
+<td align="left">Belize</td>
+<td align="right">0.1577695</td>
+<td align="right">7888.475</td>
+</tr>
+<tr class="even">
+<td align="left">Puerto Rico</td>
+<td align="right">0.0761017</td>
+<td align="right">NA</td>
+</tr>
+<tr class="odd">
+<td align="left">Sudan (pre-secession)</td>
+<td align="right">0.2184441</td>
+<td align="right">NA</td>
+</tr>
+</tbody>
+</table>
+<p>As suspected, the biggest contributors are not the same as the countries with the highest illiteracy rates. The more populous countries of India, Pakistan and Nigeria make a much bigger contribution to youth illiteracy despite having relatively low rates.</p>
+</div>
+<div id="q3.-which-countries-are-on-track-to-achieve-the-2030-youth-literacy-goals" class="section level2" number="5.3">
+<h2 number="5.3"><span class="header-section-number">5.3</span> Q3. Which countries are on track to achieve the 2030 youth literacy goals?</h2>
+</div>
+<div id="q4.-which-countries-are-likely-not-to-achieve-the-2030-youth-literacy-goals" class="section level2" number="5.4">
+<h2 number="5.4"><span class="header-section-number">5.4</span> Q4. Which countries are likely not to achieve the 2030 youth literacy goals?</h2>
+</div>
+</div>
+<div id="export" class="section level1" number="6">
+<h1 number="6"><span class="header-section-number">6</span> Export</h1>
 <p>Now all the cleaning is completed I can export the clean dataset back out as a CSV file for use in Tableau.</p>
 <pre class="r"><code># write a new csv file for the clean data
 write_csv(df, &quot;data/2019-wk46-data-clean.csv&quot;)</code></pre>

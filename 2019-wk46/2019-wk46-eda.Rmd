@@ -61,10 +61,10 @@ I would also like to explore which countries are the biggest contributors to glo
 
 ## Questions
 
-* Which countries have already achieved the 2030 youth literacy goals?
-* Which countries are on track to achieve the 2030 youth literacy goals?
-* Which countries are likely not to achieve the 2030 youth literacy goals?
+* Which countries are still working towards the 2030 youth literacy goal?
 * Which countries are the biggest contributors to global youth illiteracy?
+* Which countries are on track to achieve the 2030 youth literacy goal?
+* Which countries are likely not to achieve the 2030 youth literacy goal?
 
 # Set-up
 First I will load the packages needed for this EDA.
@@ -404,6 +404,8 @@ pop %>%
 
 Again, the `time` and `time_2` columns look as expected with values ranging from 2000 to 2020, which was the range of years I selected for the data. 
 
+One thing to note here is that the latest year in the population data is 2020, whereas in the literacy data it is 2021. I would like to include an estimate of 2021 population data, so I will attempt to impute this value for each country.
+
 I need to be careful with the `value` column, however, because the data in that column is expressed in different units according to the indicator it represents. It would be more helpful to see summaries grouped by `indicator` here.
 ```{r str-pop-grouped-by-indicator}
 # create a statistical summary for value in population,
@@ -447,6 +449,7 @@ Based on the inspection above, I have identified the following cleaning actions 
 * Drop the rows in `pop` relating to indicators for annual population growth and rural population percentage.
 * Convert percentages to proportions (between 0 and 1) in the `lit` dataset.
 * Convert population counts to the full number by multipying by 1000 in the `pop` dataset.
+* Impute values for 2021 population estimates in `pop`.
 * Prepare the `indicator` column in each dataset for joining by splitting into constituent parts: `name`, `age_demographic`, `sex_demographic` (for `lit` only) and `units`.
 
 I will save these changes into new variables so that we retain a copy of the original data.
@@ -531,6 +534,25 @@ pop_c <- pop_c %>%
 # check the result
 pop_c$population %>% 
   summary()
+```
+
+## Impute 2021 Population Values
+The simplest way to impute these values will be to assume the 2020 value. To do this, I will extract the 2020 values from the `pop_c` dataframe, convert the year to 2021 and then bind those back as new rows to `pop_c`
+```{r impute-2021-population}
+# extract 2020 values and relabel as 2021
+pop_c_2021 <- pop_c %>% 
+  filter(year == 2020) %>% 
+  mutate(year = 2021)
+
+# bind rows onto pop_c
+pop_c <- pop_c %>% 
+  bind_rows(pop_c_2021)
+
+# check results
+pop_c %>% 
+  arrange(location, indicator, desc(year)) %>% 
+  head(5) %>% 
+  kable()
 ```
 
 
@@ -719,6 +741,96 @@ df %>%
   head(3) %>% 
   kable()
 ```
+
+# Exploratory Data Analysis
+## Q1. Which countries are still working towards the 2030 youth literacy goals?
+The goal states that by 2030, all youth should achieve literacy and numeracy. For the purposes of my analysis I will assume that any country that has achieved a literacy rate of 95% or greater has achieved the goal. I will take the literacy rate from the most recently available year for each country in order to determine whether they have met the goal.
+
+I will create a subset of the original data which is filtered to the most recent year for each location and demographic, and then determine whether the country has met the goal or not. I can then join this information back into the original `df`.
+```{r met-youth-goal}
+# create a helper df to determine whether the youth goal has
+# been met for each location and sex demographic.
+df_youth_met <- df %>% 
+  filter(indicator_name == "Youth literacy rate") %>% 
+  group_by(location, sex_demographic) %>% 
+  slice_max(year) %>% 
+  ungroup() %>% 
+  mutate(youth_goal_met = if_else(literacy_rate >= 0.95,
+                                  TRUE,
+                                  FALSE))
+
+# join the youth goal status back into df
+df <- df %>% 
+  left_join(df_youth_met)
+```
+
+Now I can generate a table of the countries that are still working towards the 2030 youth literacy goal and their current (most recent) youth literacy rates.
+```{r q1-table}
+# subset the data
+q1 <- df %>% 
+  filter(youth_goal_met == FALSE,           # keeps unmet only
+         sex_demographic == "Both Sexes",   # both sexes only
+         grepl("\\D", location)) %>%        # exclude regional aggs
+  select(country, literacy_rate) %>% 
+  arrange(literacy_rate)
+
+# generate a table caption
+q1_cpt <- paste("List of",nrow(q1),"countries still working towards 2030 youth literacy goals")
+
+# print the table with caption
+q1 %>% 
+  kable(caption=q1_cpt)
+```
+
+## Q2. Which countries are the biggest contributors to global youth illiteracy?
+To answer this question, I want to look at how many illiterate people each country is contributing to the total based on their youth literacy rate and youth population estimate. Then I can determine the biggest contributors by population. While the table above shows that there are countries with extremely low literacy rates, some of those countries have relatively low populations. It will be interesting to see whether some of the more populous countries (e.g. India) are making a bigger contribution to youth illiteracy depsite having a higher literacy rate.
+
+First I need to add a column for the illiteracy rate (which is 1 minus the literacy rate) and the total illiterate population, which is the illiteracy rate multiplied by the total population.
+```{r illiteracy-rate}
+# add columns for illiteracy rate and illiterate population
+df <- df %>% 
+  mutate(illiteracy_rate = 1 - literacy_rate,
+         illiterate_population = illiteracy_rate * population)
+
+# check the results
+df %>% 
+  filter(!is.na(illiterate_population)) %>% 
+  select(indicator_name,
+         age_demographic,
+         sex_demographic,
+         location,
+         country,
+         year,
+         literacy_rate,
+         illiteracy_rate,
+         population,
+         illiterate_population) %>% 
+  head(3) %>% 
+  kable()
+```
+
+Now, I can prepare a table to show the biggest contributors to youth illiteracy by population.
+```{r q2-table}
+# subset the data
+q2 <- df %>% 
+  filter(youth_goal_met == FALSE,           # keeps unmet only
+         sex_demographic == "Both Sexes",   # both sexes only
+         grepl("\\D", location)) %>%        # exclude regional aggs
+  select(country, illiteracy_rate, illiterate_population) %>% 
+  arrange(-illiterate_population)
+
+# generate a table caption
+q2_cpt <- paste("List of",nrow(q2),"contributors to global youth illiteracy by population")
+
+# print the table with caption
+q2 %>% 
+  kable(caption=q2_cpt)
+```
+
+As suspected, the biggest contributors are not the same as the countries with the highest illiteracy rates. The more populous countries of India, Pakistan and Nigeria make a much bigger contribution to youth illiteracy despite having relatively low rates.
+
+## Q3. Which countries are on track to achieve the 2030 youth literacy goals?
+## Q4. Which countries are likely not to achieve the 2030 youth literacy goals?
 
 # Export
 Now all the cleaning is completed I can export the clean dataset back out as a CSV file for use in Tableau.
