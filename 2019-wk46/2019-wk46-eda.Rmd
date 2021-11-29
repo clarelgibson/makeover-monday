@@ -836,5 +836,7 @@ As suspected, the biggest contributors are not the same as the countries with th
 Now all the cleaning is completed I can export the clean dataset back out as a CSV file for use in Tableau.
 ```{r export-csv}
 # write a new csv file for the clean data
-write_csv(df, "data/2019-wk46-data-clean.csv")
+write_csv(x=df,
+          file="data/2019-wk46-data-clean.csv",
+          na="")
 ```
